@@ -9,7 +9,8 @@ from functools import lru_cache
 from pymongo import MongoClient
 import easyquotation
 #import other function and packages in this folders
-
+import models
+import funcs
 
 #SW DESIGN:
 #job conducting:
@@ -42,7 +43,7 @@ trade_job = db.trade_job
 tracking_list = db.tracking_list    #provide tracking 1min tick data;
 jobque = Queue.Queue(40)
 
-lastUpdateDatetime = datetime.datetime.strptime("17-03-03-15-50", "%y-%m-%d-%H-%M")
+lastUpdateDatetime = datetime.datetime.strptime("17-03-03-15-50", "%y-%m-%d-%H-%M") #should read from db.stat key=lastUpdateTime
 lastUpdateDatetimeTuple = lastUpdateDatetime.timetuple() #,init date time time0=year 1=month, 2=day, 3 = hour, 4= minuete 6 = days of week
 switch = False
 queueLock = threading.Lock()
@@ -55,23 +56,39 @@ def updateLastTimeTuple():
     lastUpdateDatetime = present
     lastUpdateDatetimeTuple = present.timetuple()
 
-def init():
+def reinit():
     #start a checker, provide hourly and daily checker for proper attemp.
-    #
+    global quo
+    global client
+    global restart_flag
+    global db
+    quo = easyquotation.use('qq')
+    client = MongoClient()
+    db = client.stock_normal
+    restart_flag = 0
 
 def query_all():
+    global restart_flag
+
     try:
         time = #the time
         res = quo.all_market
-
+        stocklistNew = []
+        coredata = {}
         for e in res:
+            stocklistNew.append(e)
+        #compare if new stock -> only daily change;
+        for i in stocklistNew:
+            stockDetail = res.get(i)
+            db.stock_all.insert_one(stockDetail)
+            coredata.update({i, genCoredata(res.get(i))})
             #append data to all
-            stock_all.insert_one(e)
             #this e trigger all the data flow!
     except:
-
         restart_flag = 1
-
+        return False
+    #return coredata dicts
+    return coredata
 
 # threadings
 class WorkerThreading(threading.Thread):
@@ -90,35 +107,43 @@ class WorkerThreading(threading.Thread):
             #global var read need no declaration;
             present = datetime.datetime.now()
             presentTimetuple = present.timetuple()   # [0]=year [1]=month [2]=day [3]=hour [4]=min
-
+            delta_time = present - lastUpdateDatetime
             #update time
             if not switch:      #if switch off, if a newday(day - last = 1 ), yes then query all at 0900 and switch on;
-                if presentTimetuple[2] - lastUpdateDatetimeTuple[2] >= 1 & presentTimetuple[3] == 9:
-                    do_daily_update()
+            # use timedelta instead    if presentTimetuple[2] - lastUpdateDatetimeTuple[2] >= 1 & presentTimetuple[3] == 9:
+                if delta_time.days > 0 & presentTimetuple[3] == 9 & presentTimetuple[4] == 30:
+                    do_hourly_update()
                     updateLastTimeTuple()
                     switch = True
             else:
             #if switch on, query all at 0930, find res if updated(work day), else switch off;
-                if presentTimetuple[3] == 9 & presentTimetuple[4] == 30 :
+                #if presentTimetuple[3] == 9 & presentTimetuple[4] == 30 :
+                #    do_hourly_update()
+                #    do_switch()
+                #    updateLastTimeTuple()
+                if presentTimetuple[3] == 15 :
+                    do_daily_update()
+                    updateLastTimeTuple()
+                    switch = False
+                elif delta_time.seconds >= 3600 & delta_time.seconds < 7200 :
                     do_hourly_update()
-                    do_switch()
-                elif presentTimetuple[3] - lastUpdateDatetimeTuple[3] >= 1 :
-                    do_hourly_update()
-                elif presentTimetuple[4] - lastUpdateDatetimeTuple[4] >= 1 :
+                    updateLastTimeTuple()
+                elif delta_time.seconds >= 60 & delta_time.seconds < 100:
                     do_minute_update()
+                    updateLastTimeTuple()
 
             #if switch on, query all at 0930 1030 1130 1300 1400 1500 for hourly Kline;
             #if switch on but not triggered above, update tracking list every minute; (min - min > 1)
             #if > 1530, switch off;
             #every query 沉睡54s
-            time.sleep(54)
+            time.sleep(45)
 
 #only exe as main
 #maintain timer tag and worker threading
 if __name__ == "__main__":
     #do main method;
     try:
-        init()  #start worker thread
+        #start worker thread and
 
     except:
         exit()
