@@ -33,4 +33,14 @@ def genCoredata(rawdata):    #strip off useless data and output only needed data
 
     return coredata
 
+def do_daily_update(rawdata):   #this has nothing to do with quoter, only processing data
 
+    return None
+
+def do_hourly_update(rawdata):
+
+    return None
+
+def do_minute_update(rawdata):
+
+    return None

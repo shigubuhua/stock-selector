@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 #ganben for fracegan stock selector, stock information importer
 
+import logging
 import pymongo
 import time, threading, datetime
 from queue import Queue
@@ -24,6 +25,8 @@ client = MongoClient()
 restart_flag = 0
 started_flag = 0
 #define for standard DBs for data oganization
+logging.basicConfig(filename = 'mainquoter.log', level = logging.INFO)
+logger = logging.getLogger('__main__')
 
 db = client.stock_normal
 # #DB design:
@@ -41,7 +44,7 @@ stock_day = db.stock_day
 last = db.last
 trade_job = db.trade_job
 tracking_list = db.tracking_list    #provide tracking 1min tick data;
-jobque = Queue.Queue(40)
+jobque = Queue(40)
 
 lastUpdateDatetime = datetime.datetime.strptime("17-03-03-15-50", "%y-%m-%d-%H-%M") #should read from db.stat key=lastUpdateTime
 lastUpdateDatetimeTuple = lastUpdateDatetime.timetuple() #,init date time time0=year 1=month, 2=day, 3 = hour, 4= minuete 6 = days of week
@@ -71,7 +74,7 @@ def query_all():
     global restart_flag
 
     try:
-        time = #the time
+        #time = #the time
         res = quo.all_market
         stocklistNew = []
         coredata = {}
@@ -80,15 +83,15 @@ def query_all():
         #compare if new stock -> only daily change;
         for i in stocklistNew:
             stockDetail = res.get(i)
-            db.stock_all.insert_one(stockDetail)
-            coredata.update({i, genCoredata(res.get(i))})
+            #db.stock_all.insert_one(stockDetail)   #not save here
+            coredata.update({i, funcs.genCoredata(res.get(i))})
             #append data to all
             #this e trigger all the data flow!
     except:
-        restart_flag = 1
+        restart_flag = 1    #if network error occurs, restart thread or re-init instance of db and quoter
         return False
-    #return coredata dicts
-    return coredata
+    #return coredata dicts or rawdata? should cache this maybe!
+    return coredata   
 
 # threadings
 class WorkerThreading(threading.Thread):
@@ -111,8 +114,11 @@ class WorkerThreading(threading.Thread):
             #update time
             if not switch:      #if switch off, if a newday(day - last = 1 ), yes then query all at 0900 and switch on;
             # use timedelta instead    if presentTimetuple[2] - lastUpdateDatetimeTuple[2] >= 1 & presentTimetuple[3] == 9:
-                if delta_time.days > 0 & presentTimetuple[3] == 9 & presentTimetuple[4] == 30:
-                    do_hourly_update()
+                if delta_time.days > 0 & presentTimetuple[3] == 9 & presentTimetuple[4] == 30: #switch on if daily 0930
+                    fresh = query_all
+                    #TODO: if fresh data is active then switch on, other wise just updateLastTimeTuple
+
+                    funcs.do_hourly_update(fresh)
                     updateLastTimeTuple()
                     switch = True
             else:
@@ -121,16 +127,21 @@ class WorkerThreading(threading.Thread):
                 #    do_hourly_update()
                 #    do_switch()
                 #    updateLastTimeTuple()
-                if presentTimetuple[3] == 15 :
-                    do_daily_update()
+                if presentTimetuple[3] == 15 :     #close if after 1500
+                    fresh = query_all
+                    funcs.do_daily_update(fresh)
                     updateLastTimeTuple()
                     switch = False
-                elif delta_time.seconds >= 3600 & delta_time.seconds < 7200 :
-                    do_hourly_update()
-                    updateLastTimeTuple()
-                elif delta_time.seconds >= 60 & delta_time.seconds < 100:
-                    do_minute_update()
-                    updateLastTimeTuple()
+                elif delta_time.seconds >= 3600 & delta_time.seconds < 7200 :  #do between 1h to 2h
+                    fresh = query_all
+                    if funcs.do_hourly_update(fresh):
+                        updateLastTimeTuple()
+                elif delta_time.seconds >= 60 & delta_time.seconds < 100:  #do between 60s and 100s
+                    #TODO: only query tracking list datas; 
+                    #get code list
+                    #query result
+                    if funcs.do_minute_update(fresh):
+                        updateLastTimeTuple()
 
             #if switch on, query all at 0930 1030 1130 1300 1400 1500 for hourly Kline;
             #if switch on but not triggered above, update tracking list every minute; (min - min > 1)
@@ -138,13 +149,21 @@ class WorkerThreading(threading.Thread):
             #every query 沉睡54s
             time.sleep(45)
 
+
+def donothing():
+    global logger
+    logger.info('donothing')
+
 #only exe as main
 #maintain timer tag and worker threading
 if __name__ == "__main__":
-    #do main method;
+    #TODO: do main method; a thread always open threading and reinit this threading!
     try:
         #start worker thread and
-
+        timer = WorkerThreading(jobque)
+        timer.start()
     except:
-        exit()
+        #raise Exception('main exception')
+        timer.join()
+        reinit()        
     # while True: if the que not empty, the worker thread is kill, restart worker thread
