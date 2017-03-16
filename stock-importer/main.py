@@ -22,7 +22,7 @@ import funcs
 #calculating real time balancing for accounts/ strategys;
 quo = easyquotation.use('qq')
 client = MongoClient()
-restart_flag = 0
+restart_flag = False
 started_flag = 0
 #define for standard DBs for data oganization
 logging.basicConfig(filename = 'mainquoter.log', level = logging.INFO)
@@ -61,40 +61,56 @@ def updateLastTimeTuple():
 
 def reinit():
     #start a checker, provide hourly and daily checker for proper attemp.
-    global quo
-    global client
+    # global quo
+    # global client
     global restart_flag
-    global db
-    quo = easyquotation.use('qq')
-    client = MongoClient()         #probably move into models module or funcs module!
-    db = client.stock_normal
-    restart_flag = 0
+    # global db
+    #quo = easyquotation.use('qq')
+    #client = MongoClient()         #probably move into models module or funcs module!
+    #db = client.stock_normal
+    restart_flag = False
+    # timer.start()
+
+def whether_switch(dt1, dt2):
+    #if should switch on or off by judgeing the two data's last time
+    delta_time = dt1 - dt2
+    if delta_time.days == 0 & delta_time.seconds < 600 :
+        return True
+    else:
+        return False
 
 def query_all():
     global restart_flag
 
     try:
         #time = #the time
+        quo = easyquotation.use('qq')  #need reassign every call
         res = quo.all_market
-        stocklistNew = []
-        coredata = {}
-        for e in res:
-            stocklistNew.append(e)
-        #compare if new stock -> only daily change;
-        for i in stocklistNew:
-            stockDetail = res.get(i)
-            #db.stock_all.insert_one(stockDetail)   #not save here
-            coredata.update({i, funcs.genCoredata(res.get(i))})
+        # stocklistNew = []
+        # coredata = {}
+        # for e in res:
+        #     stocklistNew.append(e)
+        # #compare if new stock -> only daily change;
+        # for i in stocklistNew:
+        #     stockDetail = res.get(i)
+        #     #db.stock_all.insert_one(stockDetail)   #not save here
+        #     coredata.update({i, funcs.genCoredata(res.get(i))})
             #append data to all
             #this e trigger all the data flow!
     except:
-        restart_flag = 1    #if network error occurs, restart thread or re-init instance of db and quoter
+        restart_flag = True    #if network error occurs, restart thread or re-init instance of db and quoter
         return False
     #return coredata dicts or rawdata? should cache this maybe!
-    return coredata   
+    if res:
+        return res
+    else:
+        logger.warning('empty query return')
+        restart_flag = True
+        return False
 
 # threadings
 class WorkerThreading(threading.Thread):
+    stockStat = models.Stat
     def __init__(self, q):
         threading.Thread.__init__(self)
         self.q = q
@@ -103,7 +119,7 @@ class WorkerThreading(threading.Thread):
     def run(self):
         global switch
         #this variable is needed to declaration for modify
-
+        self.stockStat.load   #incase need a setting checker not used until now;
         while not restart_flag:
 #            queueLock.acquire()
 # everyday, 900 1000 1100 1130 1300 1400 1500
@@ -114,13 +130,13 @@ class WorkerThreading(threading.Thread):
             #update time
             if not switch:      #if switch off, if a newday(day - last = 1 ), yes then query all at 0900 and switch on;
             # use timedelta instead    if presentTimetuple[2] - lastUpdateDatetimeTuple[2] >= 1 & presentTimetuple[3] == 9:
-                if delta_time.days > 0 & presentTimetuple[3] == 9 & presentTimetuple[4] == 30: #switch on if daily 0930
+                if delta_time.days > 0 & presentTimetuple[3] == 9 & presentTimetuple[4] >= 30 : #switch on if daily 0930
                     fresh = query_all
                     #TODO: if fresh data is active then switch on, other wise just updateLastTimeTuple
-
-                    funcs.do_hourly_update(fresh)
-                    updateLastTimeTuple()
-                    switch = True
+                    if whether_switch(fresh.get('sz000001').get('datetime'), present):
+                        funcs.do_hourly_update(fresh)
+                        updateLastTimeTuple()
+                        switch = True
             else:
             #if switch on, query all at 0930, find res if updated(work day), else switch off;
                 #if presentTimetuple[3] == 9 & presentTimetuple[4] == 30 :
@@ -129,8 +145,9 @@ class WorkerThreading(threading.Thread):
                 #    updateLastTimeTuple()
                 if presentTimetuple[3] == 15 :     #close if after 1500
                     fresh = query_all
-                    funcs.do_daily_update(fresh)
-                    updateLastTimeTuple()
+                    if fresh:
+                        funcs.do_daily_update(fresh)
+                        updateLastTimeTuple()
                     switch = False
                 elif delta_time.seconds >= 3600 & delta_time.seconds < 7200 :  #do between 1h to 2h
                     fresh = query_all
@@ -140,7 +157,7 @@ class WorkerThreading(threading.Thread):
                     #TODO: only query tracking list datas; 
                     #get code list
                     #query result
-                    if funcs.do_minute_update(fresh):
+                    if funcs.do_minute_update():
                         updateLastTimeTuple()
 
             #if switch on, query all at 0930 1030 1130 1300 1400 1500 for hourly Kline;
@@ -165,5 +182,6 @@ if __name__ == "__main__":
     except:
         #raise Exception('main exception')
         timer.join()
-        reinit()        
+        reinit()
+        logger.error('exceptionally exit of threading')        
     # while True: if the que not empty, the worker thread is kill, restart worker thread

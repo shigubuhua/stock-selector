@@ -56,9 +56,13 @@ class Stat(Base):
         #update the current data to db for each ObjID
         
         
+class Stock(Base):
+    col = self.db.stocks
+    def save(self, stock):
+        return col.instert_one(stock).inserted_id
 
 class StockItem(Base):
-    col = self.db.stocks  #a stock index collection
+    col = self.db.stockindex  #a stock index collection
     def append(self, code):
         donothing() # append to stat all;
     def stop(self, code):
@@ -105,20 +109,23 @@ class DailyKline(Base):
         'datetime']
     col = self.db.dailykline
     
-    def __init__(self, code, rawdata):
+    def __init__(self, code, stock):
         #for daily total klines;
-        self.param = {}
-        for i in self.items:
-            self.param.update({i, rawdata.get(code).get(i)})
+        self.stock = stock
+        self.code = code
         
     def save(self):
         dailykline = {
-            'datetime': self.param.datetime,
-            'code': self.param.code
+            'datetime': self.stock.get('datetime'),
+            'code': self.code,
+            'open': self.stock.get('open'),
+            'now': self.stock.get('now'),
+            'high': self.stock.get('high'),
+            'low': self.stock.get('low'),
+            # 'volume': self.stock.get('volume'),
+            'volpercent': self.stock.get('volume') / float(self.stock.get('流通市值'))   #to check!
         }
         return self.col.insert_one(dailykline).inserted_id
-
-
 
 #class for trade command formats and records, seemly useless
 class TradeCommand(Base):
