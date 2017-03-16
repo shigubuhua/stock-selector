@@ -66,7 +66,7 @@ def reinit():
     global restart_flag
     global db
     quo = easyquotation.use('qq')
-    client = MongoClient()
+    client = MongoClient()         #probably move into models module or funcs module!
     db = client.stock_normal
     restart_flag = 0
 

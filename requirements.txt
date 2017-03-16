@@ -1,4 +1,6 @@
 requests
+aiohttp
+easyutils
 easyquotation
 Flask
 pymongo

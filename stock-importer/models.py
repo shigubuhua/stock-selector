@@ -11,8 +11,12 @@ def donothing():
 
     
 class Base():
-    def save(self):
-        print('save')
+    client = MongoClient()
+    db = client.stock_normal   #TO CHECK: whether only one instance for many objecst inheritated;
+    
+    #def save(self):
+        #print('save'), to be override;
+    #    return None
 
 class Stat:
     def init(self):
@@ -23,7 +27,7 @@ class StockItem:
         donothing() # append to stat all;
 
 #class for hourly Kline
-class HourKline:
+class HourKline(Base):
     items= [
         'max',   #in cent(100 = 1 Yuan)
         'min',
@@ -40,9 +44,10 @@ class HourKline:
         for i in self.items:
             self.param_0.update(i, rawdata_0.get(i))
             self.param_1.update(i, rawdata_1.get(i))
+    def save(self):
 
 #class for daily Kline
-class DailyKline:
+class DailyKline(Base):
     items = [
         'max',   #in cent(100 = 1 Yuan) ??? not sure
         'min',
@@ -54,9 +59,13 @@ class DailyKline:
         'volume',
         'datetime'
     ]
+    def __init__(self, rawdata):
+        #for daily total klines;
+    def save(self):
+
 
 #class for trade command formats and records, seemly useless
-class TradeCommand:
+class TradeCommand(Base):
     def __init__(self, cmd, price, hands, code, dt, cplt):
         if cmd == 'buy' or cmd == 'sell':
             self.cmd = cmd
@@ -83,7 +92,7 @@ class TradeCommand:
     
 
 #class for trade action
-class Trade:
+class Trade(Base):
     items = [
         'cmd',   # buy or sell for whole command content
         'price',  #setted prices
@@ -114,10 +123,43 @@ class Trade:
 
 
 #class for 
-class Account():
+class Account(Base):
+    col = self.db.account
     def __init__(self, acc, balance):    #acc account id, balance in number in yuan
-        self.balance = balance
-        self.acc = acc
-
-
+        if re.match('\d{6}', acc):
+            self.opening = balance
+            self.balance = balance
+            self.acc = acc
+        else:
+            raise ValueError('acc must be six digit')
+        
+    def save(self):
+        if self.col.find_one({'acc': self.acc}):  #check whether unique acc in six digit number
+            raise ValueError('duplicated acc')
+        account = {'acc': self.acc, 'balance': self.balance}     #need more data, tags etc.
+        return self.col.insert_one(account).inserted_id()
     
+    def find(self, acc):
+        if re.match('\d{6}', acc):
+            return self.col.find_one({'acc': acc})
+        else:
+            raise ValueError('acc must be 6 digit and valid')
+
+    def addTrade(self, tradeCommand):
+        #add a command to this account
+        #         
+    def checkTrade(self):
+        #return a list of added tradecommand ( include history )
+
+    def sell(self, code, hands, price):
+        #if owned this code, sell the with a given price and add balance
+
+    def buy(self, code, hands, price):
+        #if balance can afford, decrease balance, add or increase owned stock code and hands and price
+        
+    def checkOwned(self):
+        #return a list of code and hands;
+
+    def update(self):
+        #save this object; before commit must find this obj;
+        
