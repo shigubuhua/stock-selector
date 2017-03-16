@@ -10,27 +10,72 @@ def donothing():
     return None
 
     
-class Base():
+class Base:
     client = MongoClient()
     db = client.stock_normal   #TO CHECK: whether only one instance for many objecst inheritated;
+    source = 'normal'
+    def changeSource(self, target):
+        if target == 'normal':
+            db = client.stock_normal
+            self.source = target
+        elif target == 'test':
+            db = client.stock_test
+            self.source = target
+        else:
+            raise ValueError('wrong target input')
     
+    def validateSource(self):
+        return self.source
     #def save(self):
         #print('save'), to be override;
     #    return None
 
-class Stat:
-    def init(self):
+class Stat(Base):
+    col = self.db.stat
+    #a config collection. has many system status; this list all keys names;
+    items = [
+        'stock_count', #all count of the stock list
+        'started_datetime', #the initial scripting TimeoutError
+        'lastquery_datetime', # the last datetime of data query
+        'lastvisit_datetime'
+    ]
+    def __init__(self):
         donothing()
+        #init the class, reserved method;
+        self.param = {}
 
-class StockItem:
-    def append(self):
+        self.load
+    def load(self):
+        #load all var from db
+        for i in self.items:
+            value = self.col.find_one({'key': i})
+            self.param.update({i, value})
+
+
+    def update(self):
+        #update the current data to db for each ObjID
+        
+        
+
+class StockItem(Base):
+    col = self.db.stocks  #a stock index collection
+    def append(self, code):
         donothing() # append to stat all;
+    def stop(self, code):
+        #ting pai
+
+    def reopen(self, code):
+        #fu pai
+
+    def change(self, code):
+        # do sth like fuquan, zeng fa, etc;
 
 #class for hourly Kline
 class HourKline(Base):
+    col = self.db.hourkline
     items= [
-        'max',   #in cent(100 = 1 Yuan)
-        'min',
+        'high',   #in cent(100 = 1 Yuan)
+        'low',
         'open',
         'now',
         'close',
@@ -49,23 +94,35 @@ class HourKline(Base):
 #class for daily Kline
 class DailyKline(Base):
     items = [
-        'max',   #in cent(100 = 1 Yuan) ??? not sure
-        'min',
+        'high',   #in cent(100 = 1 Yuan) ??? not sure
+        'low',
         'open',
         'now',
         'close',
         'code',
         'turnover',
         'volume',
-        'datetime'
-    ]
-    def __init__(self, rawdata):
+        'datetime']
+    col = self.db.dailykline
+    
+    def __init__(self, code, rawdata):
         #for daily total klines;
+        self.param = {}
+        for i in self.items:
+            self.param.update({i, rawdata.get(code).get(i)})
+        
     def save(self):
+        dailykline = {
+            'datetime': self.param.datetime,
+            'code': self.param.code
+        }
+        return self.col.insert_one(dailykline).inserted_id
+
 
 
 #class for trade command formats and records, seemly useless
 class TradeCommand(Base):
+    col = self.db.tradecommand
     def __init__(self, cmd, price, hands, code, dt, cplt):
         if cmd == 'buy' or cmd == 'sell':
             self.cmd = cmd
@@ -89,7 +146,17 @@ class TradeCommand(Base):
         if self.cmd == 'buy':
             if rawdata.get(code).get('now') == self.price:   #use now price as get traded price
                 return True
+
+#class for owned stocks
+class OwnedStock(Base):
+    col = self.ownedstock
+    def __init__(self, acc, code, hands):
+        #the price depend on market
+    def save(self):
     
+    def sell(self):
+    
+    def checkprice(self):
 
 #class for trade action
 class Trade(Base):
@@ -101,7 +168,7 @@ class Trade(Base):
         'datetime', #valide before this time
         'complete'    #completed hands 
     ]
-
+    col = self.db.trade
     def __init__(self, acc, command):   #command.code price buy/sell timeout
         self.acc = acc
         self.command = {}
@@ -162,4 +229,3 @@ class Account(Base):
 
     def update(self):
         #save this object; before commit must find this obj;
-        
