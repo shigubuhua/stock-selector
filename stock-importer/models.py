@@ -31,48 +31,59 @@ class Base:
     #    return None
 
 class Stat(Base):
-    col = self.db.stat
+    col = Base.db.stat
     #a config collection. has many system status; this list all keys names;
     items = [
-        'stock_count', #all count of the stock list
+        'stock_count', #all count of the stock list, all/active/
         'started_datetime', #the initial scripting TimeoutError
         'lastquery_datetime', # the last datetime of data query
-        'lastvisit_datetime'
+        'lastvisit_datetime', # the last change from user or owner
+        #'stock_list',    #a list of all stock code#deprecate
+        'stock_stat',    #a dict of all stock code and its state code: active or other
+
     ]
     def __init__(self):
         donothing()
         #init the class, reserved method;
         self.param = {}
-
+        #
+        #
         self.load
     def load(self):
-        #load all var from db
+        #load all var from db, if not exist, use all value;
+        #
         for i in self.items:
             value = self.col.find_one({'key': i})
             self.param.update({i, value})
 
 
-    def update(self):
+    def update(self, rawdata):
         #update the current data to db for each ObjID
-        
+        #check stock_list
+
+        #update value and save all changed key values;
+        return None
         
 class Stock(Base):
-    col = self.db.stocks
+    col = Base.db.stocks
     def save(self, stock):
         return col.instert_one(stock).inserted_id
 
 class StockItem(Base):
-    col = self.db.stockindex  #a stock index collection
+    col = Base.db.stockindex  #a stock index collection
     def append(self, code):
         donothing() # append to stat all;
     def stop(self, code):
         #ting pai
+        return None
 
     def reopen(self, code):
         #fu pai
+        return None
 
     def change(self, code):
         # do sth like fuquan, zeng fa, etc;
+        return None
 
 #class for hourly Kline
 class HourKline(Base):
@@ -95,6 +106,8 @@ class HourKline(Base):
             self.param_1.update(i, rawdata_1.get(i))
     def save(self):
 
+        return None
+
 #class for daily Kline
 class DailyKline(Base):
     items = [
@@ -107,7 +120,7 @@ class DailyKline(Base):
         'turnover',
         'volume',
         'datetime']
-    col = self.db.dailykline
+    col = Base.db.dailykline
     
     def __init__(self, code, stock):
         #for daily total klines;
@@ -129,7 +142,7 @@ class DailyKline(Base):
 
 #class for trade command formats and records, seemly useless
 class TradeCommand(Base):
-    col = self.db.tradecommand
+    col = Base.db.tradecommand
     def __init__(self, cmd, price, hands, code, dt, cplt):
         if cmd == 'buy' or cmd == 'sell':
             self.cmd = cmd
@@ -156,7 +169,7 @@ class TradeCommand(Base):
 
 #class for owned stocks
 class OwnedStock(Base):
-    col = self.ownedstock
+    col = Base.db.ownedstock
     def __init__(self, acc, code, hands):
         #the price depend on market
     def save(self):
@@ -175,7 +188,7 @@ class Trade(Base):
         'datetime', #valide before this time
         'complete'    #completed hands 
     ]
-    col = self.db.trade
+    col = Base.db.trade
     def __init__(self, acc, command):   #command.code price buy/sell timeout
         self.acc = acc
         self.command = {}
@@ -198,7 +211,7 @@ class Trade(Base):
 
 #class for 
 class Account(Base):
-    col = self.db.account
+    col = Base.db.account
     def __init__(self, acc, balance):    #acc account id, balance in number in yuan
         if re.match('\d{6}', acc):
             self.opening = balance
