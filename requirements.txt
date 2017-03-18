@@ -5,7 +5,9 @@ easyquotation
 Flask
 pymongo
 cachetools
-#manual install tushare #github.com/waditu/tushare
+#manual install tushare #github.com/waditu/tushare #not necessary
 #manual pandas
+pandas
+tushare
 pystan
 fbprophet

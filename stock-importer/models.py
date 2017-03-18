@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 import datetime
 import re
+import json
 from pymongo import MongoClient
+import tushare as ts
 #we use utc+8 timezone time; makesure env has right configured!
 #client = MongoClient()
 #db = client.stock_normal
@@ -63,11 +65,34 @@ class Stat(Base):
 
         #update value and save all changed key values;
         return None
-        
-class Stock(Base):
-    col = Base.db.stocks
-    def save(self, stock):
+
+#the daily item for each stock
+class StockDaily(Base):
+    col = Base.db.stockdaily
+    source = ts
+    def save_by_input(self, stock):
+        #directly input buy given dict;
         return col.instert_one(stock).inserted_id
+    
+    def find_by_code(self, code):
+        #find code's history, translate
+
+    def find_by_date(self, date):
+        #find daily all stocks for specific date
+
+    def import_from_ts(self, code):
+        #resolve code(sh , sz pattern) and save all records, item by item, reject duplicated save;
+        res = ts.get_hist_data(code)
+        #to json and factory new data
+        obj = json.loads(res.to_json(orient='index'))  #only this format suits
+        for i in obj:
+            datet = datetime.datetime(i)   #2011-12-20, plus 15:00:00 use format;
+            stockdict = obj.get(i)
+            stockdict.update({'code': code, 'datetime': datet})
+            self.col.insert_one(stockdict).inserted_id         
+        
+    def save_one(self):
+        #save the queryed item,
 
 class StockItem(Base):
     col = Base.db.stockindex  #a stock index collection
