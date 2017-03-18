@@ -42,7 +42,6 @@ class Stat(Base):
         'lastvisit_datetime', # the last change from user or owner
         #'stock_list',    #a list of all stock code#deprecate
         'stock_stat',    #a dict of all stock code and its state code: active or other
-
     ]
     def __init__(self):
         donothing()
@@ -72,13 +71,15 @@ class StockDaily(Base):
     source = ts
     def save_by_input(self, stock):
         #directly input buy given dict;
-        return col.instert_one(stock).inserted_id
+        return self.col.instert_one(stock).inserted_id
     
     def find_by_code(self, code):
         #find code's history, translate
+        return  self.col.find({"code": code}).sort("datetime")    #TODO: this returns cursor not objs;
 
     def find_by_date(self, date):
         #find daily all stocks for specific date
+        res = self.col.find({"date": date}).sort("code")
 
     def import_from_ts(self, code):
         #resolve code(sh , sz pattern) and save all records, item by item, reject duplicated save;
@@ -86,13 +87,53 @@ class StockDaily(Base):
         #to json and factory new data
         obj = json.loads(res.to_json(orient='index'))  #only this format suits
         for i in obj:
-            datet = datetime.datetime(i)   #2011-12-20, plus 15:00:00 use format;
+            dateTime = datetime.datetime.strptime(i +" 15:00", "%Y-%m-%d %H:%M")   #2011-12-20, plus 15:00:00 use format;
+            dateD = dateTime.date()
             stockdict = obj.get(i)
-            stockdict.update({'code': code, 'datetime': datet})
+            stockdict.update({'code': code, 'date': dateD})
             self.col.insert_one(stockdict).inserted_id         
         
-    def save_one(self):
+    def update_today(self):
         #save the queryed item,
+        res = ts.get_today_all()
+        obj = json.loads(res.to_json(orient='index'))
+        dateD = datetime.datetime.now()
+        # if dateD.timetuple[3] == 9 & dateD.timetuple[4] >= 30:
+        #     res = ts.get_today_all()
+        # elif dateD.timetuple[3] > 9 :
+        #     res = ts.get_today_all()
+        # elif dateD.timetuple[3] < 9:
+        ds = 3600*(dateD.timetuple()[3]+1)
+        dt = datetime.timedelta(seconds=ds)
+        dateD = dateD -  dt
+           
+        counting = 0
+        for i in obj:
+            #dateTime = datetime.datetime.strptime(i, "%Y-%m-%d")
+            stock = obj.get(i)
+            if self.col.find_one({"date": dateD, "code": stock.get('code')}) == None:
+                stock.update({"date": dateD})
+                self.col.insert_one(stock).inserted_id
+                counting+= 1
+        return counting
+
+
+# code：代码
+# name:名称
+# changepercent:涨跌幅
+# trade:现价
+# open:开盘价
+# high:最高价
+# low:最低价
+# settlement:昨日收盘价
+# volume:成交量
+# turnoverratio:换手率
+# amount:成交量
+# per:市盈率
+# pb:市净率
+# mktcap:总市值
+# nmc:流通市值
+
 
 class StockItem(Base):
     col = Base.db.stockindex  #a stock index collection
@@ -112,7 +153,7 @@ class StockItem(Base):
 
 #class for hourly Kline
 class HourKline(Base):
-    col = self.db.hourkline
+    col = Base.db.hourkline
     items= [
         'high',   #in cent(100 = 1 Yuan)
         'low',
@@ -197,11 +238,14 @@ class OwnedStock(Base):
     col = Base.db.ownedstock
     def __init__(self, acc, code, hands):
         #the price depend on market
-    def save(self):
+        self.acc = acc
+        self.code = code
+        self.hands = hands
+    # def save(self):
     
-    def sell(self):
+    # def sell(self):
     
-    def checkprice(self):
+    # def checkprice(self):
 
 #class for trade action
 class Trade(Base):
@@ -257,20 +301,20 @@ class Account(Base):
         else:
             raise ValueError('acc must be 6 digit and valid')
 
-    def addTrade(self, tradeCommand):
+    # def addTrade(self, tradeCommand):
         #add a command to this account
         #         
-    def checkTrade(self):
+    # def checkTrade(self):
         #return a list of added tradecommand ( include history )
 
-    def sell(self, code, hands, price):
+    # def sell(self, code, hands, price):
         #if owned this code, sell the with a given price and add balance
 
-    def buy(self, code, hands, price):
+    # def buy(self, code, hands, price):
         #if balance can afford, decrease balance, add or increase owned stock code and hands and price
         
-    def checkOwned(self):
+    # def checkOwned(self):
         #return a list of code and hands;
 
-    def update(self):
+    # def update(self):
         #save this object; before commit must find this obj;
