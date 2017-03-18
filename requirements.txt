@@ -1,5 +1,13 @@
 requests
+aiohttp
+easyutils
 easyquotation
 Flask
 pymongo
 cachetools
+#manual install tushare #github.com/waditu/tushare #not necessary
+#manual pandas
+pandas
+tushare
+pystan
+fbprophet
