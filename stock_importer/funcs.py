@@ -5,6 +5,11 @@ import datetime
 import models
 import easyquotation
 
+#for fbprophet simple predictor
+import pandas as pd
+import numpy as np
+from fbprophet import Prophet
+
 #not used method
 def genCoredata(rawdata):    #strip off useless data and output only needed data
     # dateTime = rawdata.get('datetime')
