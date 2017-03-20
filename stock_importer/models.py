@@ -18,10 +18,10 @@ class Base:
     source = 'normal'
     def changeSource(self, target):
         if target == 'normal':
-            db = client.stock_normal
+            db = self.client.stock_normal
             self.source = target
         elif target == 'test':
-            db = client.stock_test
+            db = self.client.stock_test
             self.source = target
         else:
             raise ValueError('wrong target input')
@@ -49,10 +49,11 @@ class Stat(Base):
         self.param = {}
         #
         #
-        self.load
+        self.load()
     def load(self):
         #load all var from db, if not exist, use all value;
         #
+
         for i in self.items:
             value = self.col.find_one({'key': i})
             self.param.update({i, value})
@@ -75,11 +76,14 @@ class StockDaily(Base):
     
     def find_by_code(self, code):
         #find code's history, translate
-        return  self.col.find({"code": code}).sort("datetime")    #TODO: this returns cursor not objs;
+
+        dts = list(self.col.find({"code": code}).sort("datetime"))    #RESOLVED:by using list() constructor: this returns cursor not objs;
+        return dts
 
     def find_by_date(self, date):
         #find daily all stocks for specific date
-        res = self.col.find({"date": date}).sort("code")
+        res = list(self.col.find({"date": date}).sort("code"))
+        return res
 
     def import_from_ts(self, code):
         #resolve code(sh , sz pattern) and save all records, item by item, reject duplicated save;
@@ -91,7 +95,7 @@ class StockDaily(Base):
             dateD = dateTime.date()
             stockdict = obj.get(i)
             stockdict.update({'code': code, 'date': dateD})
-            self.col.insert_one(stockdict).inserted_id         
+            self.col.insert_one(stockdict).inserted_id()
         
     def update_today(self):
         #save the queryed item,
@@ -103,21 +107,47 @@ class StockDaily(Base):
         # elif dateD.timetuple[3] > 9 :
         #     res = ts.get_today_all()
         # elif dateD.timetuple[3] < 9:
+        if dateD.date().isoweekday() > 5:
+            return None
+
         ds = 3600*(dateD.timetuple()[3]+1)
         dt = datetime.timedelta(seconds=ds)
         dateD = dateD -  dt
            
-        counting = 0
+        # counting = 0
+        lists = []
         for i in obj:
             #dateTime = datetime.datetime.strptime(i, "%Y-%m-%d")
             stock = obj.get(i)
-            if self.col.find_one({"date": dateD, "code": stock.get('code')}) == None:
-                stock.update({"date": dateD})
-                self.col.insert_one(stock).inserted_id
-                counting+= 1
-        return counting
+            stock.update({"date": dateD})
+            lists.append(stock)
+            if self.col.find_one({"date": dateD, "code": stock.get('code')}) == None & dateD.timetuple()[3] >= 15:
+                self.col.insert_one(stock).inserted_id()   #only insert data after 15pm
+                # counting+= 1
+            # else:
 
+        return lists
 
+class StockRealtime(Base):
+    col = Base.db.stockrealtime
+    def __init__(self, code):
+        self.stock = {}
+        self.dateT = datetime.datetime.now()
+        self.stock.update({'datetime': self.dateT})
+        rt = ts.get_realtime_quotes(code)
+        for i in rt.to_dict():
+            self.stock.update({i: rt.to_dict().get(i).get(0)})
+
+    def save(self):
+        #construct data's timestamp
+        ds = " ".join((self.stock.get('date'), self.stock.get('time')))
+        reDate = datetime.datetime.strptime(ds, '%Y-%m-%d %H:%M:%S')
+        deltaT =  self.dateT - reDate#if inited datetime close to data's datetime, do save, otherwise reject
+        if deltaT.seconds < 100:
+            self.col.insert_one(self.stock)
+            return True
+        else:
+            return False
 # code：代码
 # name:名称
 # changepercent:涨跌幅
@@ -158,11 +188,19 @@ class HourKline(Base):
         'high',   #in cent(100 = 1 Yuan)
         'low',
         'open',
-        'now',
-        'close',
+        'trade',     #modify to tushare data format
+        'settlement',
         'code',
-        'turnover',
-        'volume']
+        'changepercent',
+        'turnoverratio',
+        'volume',
+        'per',
+        'pb',
+        'nmc',
+        'mktcap',
+        'amount',
+        'datetime'    #encapsulated datetime
+    ]
     def __init__(self, code, rawdata_0, rawdata_1):   #rawdata 0:(last hour),1:(current price)
         self.code = code
         self.param_0 = {}     #use instance var to store
@@ -170,7 +208,9 @@ class HourKline(Base):
         for i in self.items:
             self.param_0.update(i, rawdata_0.get(i))
             self.param_1.update(i, rawdata_1.get(i))
+
     def save(self):
+        #unique check
 
         return None
 
