@@ -41,14 +41,14 @@ def genCoredata(rawdata):    #strip off useless data and output only needed data
 
 #task: calculate daily Kline; update Stat; close and clear cache;
 def do_daily_update(rawdata):   #this has nothing to do with quoter, only processing data
-    if not rawdata == None:
-        return False
-    for i in rawdata:
-        stock = rawdata.get(i)
-        bStock = models.Stock
-        bStock.save(stock)
-        dailyKline = models.DailyKline(i, bStock)
-        dailyKline.save()
+    # if not rawdata == None:
+    #     return False
+    # for i in rawdata:
+    #     stock = rawdata.get(i)
+    #     bStock = models.StockDaily()
+    #     bStock.save(stock)
+    #     dailyKline = models.DailyKline(i, bStock)
+    #     dailyKline.save()
     b = models.StockDaily()
     return b.update_today()
 
@@ -64,10 +64,23 @@ def do_hourly_update(rawdata):
 #task: only check code of tracking list;
 def do_minute_update():
     trackings = []
+    #query observe list and do update:
+    obs = models.StockItem()
+    observings = obs.get_observe()
+    obsList = []
+    b = models.StockRealtime()
+    if len(observings) > 0:
+        for i in observings:
+            c = i.get('code')
+            obsList.append(c)
+    #add new methods
+        b.new_by_codes(obsList)
+        b.save_all()
     #TODO: query tracking list and exe tradecommand;
-
-
-
+    if len(b.stocks.values()) > 0:
+        #get tradecommand and calculate trade result;
+        trades = models.Trade()
+        trades.load_all()
 
 def stock_update(stock):
     #refresh cache, 

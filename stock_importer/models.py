@@ -143,16 +143,30 @@ class StockRealtime(Base):
         for i in rt.to_dict():
             self.stock.update({i: rt.to_dict().get(i).get(0)})
 
+    def new_by_codes(self, codes):
+        self.codes = codes
+        rt = ts.get_realtime_quotes(codes)
+        obj = json.loads(rt.to_json(orient='index'))
+        l = list(obj.values())
+        dateD = datetime.datetime.now()
+        for i in l:
+            i.update({'datetime': dateD})     #add target a datetime obj
+            self.stocks.update({i.get('code'): i})  #add to obj stocks dict
+        self.lists = l
+        return self.lists
+
     def query_all(self):
         res = ts.get_today_all()
         obj = json.loads(res.to_json(orient='index'))
         dateD = datetime.datetime.now()
         self.lists = []
+        self.stocks = {}
         stock = {}
         for i in obj:
             stock = obj.get(i)
             stock.update({"datetime": dateD})
             self.lists.append(stock)
+            self.stocks.update({stock.get('code'): stock})
         return self.lists
 
     def save_all(self):
@@ -300,10 +314,10 @@ class TradeCommand(Base):
         else:
             raise ValueError('invalid price type, shoud be float')
 
-        if re.match('s[zh]\d{6}', code):      #check if code match quo from qq, [sz]\d6
+        if re.match('\d{6}', code):      #check if code match quo from qq, [sz]\d6
             self.code = code
         else:
-            raise ValueError('invalide code format like sz000000 or sh000000')
+            raise ValueError('invalide code format like (deped only 6d)sz000000 or sh000000')
         #TODO: complete other variables 
 #        self.rawdata = rawdata
     
@@ -316,16 +330,37 @@ class TradeCommand(Base):
 #class for owned stocks
 class OwnedStock(Base):
     col = Base.db.ownedstock
-    def __init__(self, acc, code, hands):
+    def buy(self, acc, code, hands):
         #the price depend on market
         self.acc = acc
         self.code = code
-        self.hands = hands
-    # def save(self):
+        self.hands += hands
+        # self.price = price
+        # self.amount = price*100*hands
     
-    # def sell(self):
-    
-    # def checkprice(self):
+    def sell(self, acc, code, hands):
+        #check if can sell
+        self.acc = acc
+        self.code = code
+        b = self.col.find_one({'code': code, 'acc': acc})
+        if b & b.get('hands') >= hands:            
+            self.hands = b.get('hands') - hands
+            # b.update({'hands': self.hands})
+            return self.hands
+        else:
+            return False
+
+    def save(self):
+        r = self.col.find_one({'code': code, 'acc': acc})
+        b = False
+        if self.hands == 0:
+            b = self.col.find_one_and_delete({'code': self.code, 'acc': self.acc})
+        elif not r == None:
+            b = self.col.find_one_and_replace({'code': self.code, 'acc': self.acc}, {'code': self.code, 'acc': self.acc, 'hands': r.get('hands') + self.hands}) 
+        elif r == None:
+            b = self.col.insert_one({'code': self.code, 'acc': self.acc, 'hands': self.hands})
+        return b
+
 
 #class for trade action
 class Trade(Base):
@@ -338,7 +373,7 @@ class Trade(Base):
         'complete'    #completed hands 
     ]
     col = Base.db.trade
-    def __init__(self, acc, command):   #command.code price buy/sell timeout
+    def new(self, acc, command):   #command.code price buy/sell timeout
         self.acc = acc
         self.command = {}
         self.complete = 0
@@ -347,8 +382,9 @@ class Trade(Base):
                 self.command.update(e, command.get(e))    #check command format;
             else:
                 raise ValueError
+    
 
-    def check_trade(self, rawdata):
+    def check_trade(self, rawdata):  #to depr
         code = self.command.get('code')
         if rawdata.get(code):
             if rawdata.get(code).get('now') == self.command.get('price'):
@@ -361,7 +397,7 @@ class Trade(Base):
 #class for 
 class Account(Base):
     col = Base.db.account
-    def __init__(self, acc, balance):    #acc account id, balance in number in yuan
+    def new(self, acc, balance):    #acc account id, balance in number in yuan
         if re.match('\d{6}', acc):
             self.opening = balance
             self.balance = balance
@@ -372,15 +408,30 @@ class Account(Base):
     def save(self):
         if self.col.find_one({'acc': self.acc}):  #check whether unique acc in six digit number
             raise ValueError('duplicated acc')
-        account = {'acc': self.acc, 'balance': self.balance}     #need more data, tags etc.
+        account = {'acc': self.acc, 'balance': self.balance, 'opening': self.opening}     #need more data, tags etc.
         return self.col.insert_one(account).inserted_id()
+    
+    def load(self, acc):
+        rst = self.col.find_one({'acc': acc})
+        if not rst == None:
+            self.acc = acc
+            self.balance = rst.balance
+            return True
+        else:
+            return False
     
     def find(self, acc):
         if re.match('\d{6}', acc):
             return self.col.find_one({'acc': acc})
         else:
             raise ValueError('acc must be 6 digit and valid')
+    
+    def add_command(self, command):
+        #add a command to this account;
+        return None
 
+    def find_all(self):
+        return list(self.col.find())
     # def addTrade(self, tradeCommand):
         #add a command to this account
         #         
