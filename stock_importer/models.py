@@ -18,10 +18,10 @@ class Base:
     source = 'normal'
     def changeSource(self, target):
         if target == 'normal':
-            db = self.client.stock_normal
+            self.db = self.client.stock_normal
             self.source = target
         elif target == 'test':
-            db = self.client.stock_test
+            self.db = self.client.stock_test
             self.source = target
         else:
             raise ValueError('wrong target input')
@@ -119,24 +119,49 @@ class StockDaily(Base):
         for i in obj:
             #dateTime = datetime.datetime.strptime(i, "%Y-%m-%d")
             stock = obj.get(i)
-            stock.update({"date": dateD})
+            stock.update({"datetime": dateD})
             lists.append(stock)
             if self.col.find_one({"date": dateD, "code": stock.get('code')}) == None & dateD.timetuple()[3] >= 15:
-                self.col.insert_one(stock).inserted_id()   #only insert data after 15pm
+                self.col.insert_one(stock)  #only insert data after 15pm
                 # counting+= 1
             # else:
 
         return lists
 
+# class
+
 class StockRealtime(Base):
     col = Base.db.stockrealtime
-    def __init__(self, code):
+    def __init__(self):
         self.stock = {}
         self.dateT = datetime.datetime.now()
         self.stock.update({'datetime': self.dateT})
+
+    def new_by_code(self, code):
+        self.code = code
         rt = ts.get_realtime_quotes(code)
         for i in rt.to_dict():
             self.stock.update({i: rt.to_dict().get(i).get(0)})
+
+    def query_all(self):
+        res = ts.get_today_all()
+        obj = json.loads(res.to_json(orient='index'))
+        dateD = datetime.datetime.now()
+        self.lists = []
+        stock = {}
+        for i in obj:
+            stock = obj.get(i)
+            stock.update({"datetime": dateD})
+            self.lists.append(stock)
+        return self.lists
+
+    def save_all(self):
+        if not len(self.lists) == 0:
+            for i in self.lists:
+                self.col.insert_one(i)
+            return True
+        else:
+            return False
 
     def save(self):
         #construct data's timestamp
@@ -167,6 +192,7 @@ class StockRealtime(Base):
 
 class StockItem(Base):
     col = Base.db.stockindex  #a stock index collection
+    colObs = Base.db.stockobservation
     def append(self, code):
         donothing() # append to stat all;
     def stop(self, code):
@@ -181,6 +207,20 @@ class StockItem(Base):
         # do sth like fuquan, zeng fa, etc;
         return None
 
+    def add_observe(self, code):
+        # add the code into observation list for minute update
+
+        #if already exist, do no insert
+        rst = list(self.colObs.find({'code': code}))
+        dateD = datetime.datetime.now()
+        obs = {'code': code, 'datetime': dateD}
+        if len(rst) == 0:
+            return self.colObs.insert_one(obs).inserted_id()
+        else:
+            return False
+
+    def get_observe(self):
+        return list(self.colObs.find())
 #class for hourly Kline
 class HourKline(Base):
     col = Base.db.hourkline

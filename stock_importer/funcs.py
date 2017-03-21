@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import datetime
-import models
+import stock_importer.models as models
 import easyquotation
 
 #for fbprophet simple predictor
@@ -48,23 +48,26 @@ def do_daily_update(rawdata):   #this has nothing to do with quoter, only proces
         bStock = models.Stock
         bStock.save(stock)
         dailyKline = models.DailyKline(i, bStock)
-        dailyKline.save
-        
-    return True
+        dailyKline.save()
+    b = models.StockDaily()
+    return b.update_today()
+
+
 #task: update cache, update stat, update stocklist incase new stock; sorting max, min
 def do_hourly_update(rawdata):
     #generate hourly Kline
+    rt = models.StockRealtime()
+    rt.query_all()
+    rt.save_all()
     return True
+
 #task: only check code of tracking list;
 def do_minute_update():
     trackings = []
     #TODO: query tracking list and exe tradecommand;
-    quo = easyquotation.use('qq')
-    res = quo.stocks(trackings)
-    for i in res:
-        stock_update(res.get(i))
-#        stock_trad(res.get(i))
-    return True
+
+
+
 
 def stock_update(stock):
     #refresh cache, 
