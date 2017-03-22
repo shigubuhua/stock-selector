@@ -119,7 +119,7 @@ class WorkerThreading(threading.Thread):
     def run(self):
         global switch
         #this variable is needed to declaration for modify
-        self.stockStat.load   #incase need a setting checker not used until now;
+        # self.stockStat.load   #incase need a setting checker not used until now;
         while not restart_flag:
 #            queueLock.acquire()
 # everyday, 900 1000 1100 1130 1300 1400 1500
@@ -164,7 +164,7 @@ class WorkerThreading(threading.Thread):
             #if switch on but not triggered above, update tracking list every minute; (min - min > 1)
             #if > 1530, switch off;
             #every query 沉睡54s
-            time.sleep(45)
+            time.sleep(30)
 
 
 def donothing():
@@ -181,7 +181,7 @@ if __name__ == "__main__":
         timer.start()
     except:
         #raise Exception('main exception')
-        timer.join()
+        #timer.join()
         reinit()
         logger.error('exceptionally exit of threading')        
     # while True: if the que not empty, the worker thread is kill, restart worker thread
