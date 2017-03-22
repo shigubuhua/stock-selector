@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import datetime
-import stock_importer.models as models
+import models as models
 import easyquotation
 
 #for fbprophet simple predictor
@@ -80,7 +80,19 @@ def do_minute_update():
     if len(b.stocks.values()) > 0:
         #get tradecommand and calculate trade result;
         trades = models.Trade()
-        trades.load_all()
+        alltrade = trades.load_all()
+        for b in alltrade:
+            c = b.command.get('code')
+            p = b.command.get('price')
+            if p == b.stocks.get(c).get('trade'):
+                act = models.Account()
+                act.load(b.command.acc)
+                cost = p * b.command.get('hands') * -100
+                if act.balance > cost:
+                    act.trans(cost)
+                    act.update()
+                    b.trading(b.command.get('hands'))
+                    b.update()  #assume all completed
 
 def stock_update(stock):
     #refresh cache, 

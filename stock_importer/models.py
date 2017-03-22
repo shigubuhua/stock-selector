@@ -351,7 +351,9 @@ class OwnedStock(Base):
             return False
 
     def save(self):
-        r = self.col.find_one({'code': code, 'acc': acc})
+        if self.code == None:
+            raise OverflowError('not initialed parameters')
+        r = self.col.find_one({'code': self.code, 'acc': self.acc})
         b = False
         if self.hands == 0:
             b = self.col.find_one_and_delete({'code': self.code, 'acc': self.acc})
@@ -382,7 +384,17 @@ class Trade(Base):
                 self.command.update(e, command.get(e))    #check command format;
             else:
                 raise ValueError
-    
+
+    def save(self):
+        item = {'acc': self.acc, 'code': self.command.get('code'), 'command': self.command, 'complete': self.complete}
+        return self.col.insert_one(item).inserted_id()
+
+    def update(self):
+        return self.col.find_one_and_update({'acc': self.acc, 'code': self.command.get('code')}, {'complete': self.complete})
+
+    def trading(self, hands):
+        self.complete += hands
+        return self.complete
 
     def check_trade(self, rawdata):  #to depr
         code = self.command.get('code')
@@ -392,7 +404,10 @@ class Trade(Base):
                 return self.complete
         else:
             return False
-
+    #return all trade item for all acc
+    def load_all(self):
+        res = list(self.col.find())
+        return res    #TODO: verify if this returned a list of objs
 
 #class for 
 class Account(Base):
@@ -419,7 +434,17 @@ class Account(Base):
             return True
         else:
             return False
-    
+
+    def trans(self, change):    #buy or sell a amount
+        self.balance += change
+        if self.balance >= 0:
+            return True
+        else:
+            return False
+
+    def update(self):
+        return self.col.find_one_and_update({'acc': self.acc}, {'balance': self.balance})
+
     def find(self, acc):
         if re.match('\d{6}', acc):
             return self.col.find_one({'acc': acc})

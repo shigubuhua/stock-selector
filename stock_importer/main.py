@@ -181,7 +181,7 @@ if __name__ == "__main__":
         timer.start()
     except:
         #raise Exception('main exception')
-        timer.join()
+        #timer.join()
         reinit()
         logger.error('exceptionally exit of threading')        
     # while True: if the que not empty, the worker thread is kill, restart worker thread
