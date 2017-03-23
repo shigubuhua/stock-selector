@@ -233,6 +233,11 @@ class StockItem(Base):
         else:
             return False
 
+    def delete_observe(self, code):
+        #delete observe list
+        rst = self.colObs.find_one_and_delete({'code': code})
+        return rst
+
     def get_observe(self):
         return list(self.colObs.find())
 #class for hourly Kline
