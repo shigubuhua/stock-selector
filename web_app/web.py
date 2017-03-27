@@ -3,14 +3,14 @@
 #ganben for fracegan stock study, web interface
 
 from flask import Flask, url_for    #for static and url building
-from ..stock_importer import models   #for stock obj and data
 from flask import render_template     #for template rendering
 from flask import request  #for http method(api ?)
+
+from web_app.stock_importer import models
 from .funcs import *     #for all need functions
 
 app = Flask(__name__)
 url_for('static', filename='style.css')
-
 
 @app.route('/')
 def index_hello():

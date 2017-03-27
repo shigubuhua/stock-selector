@@ -2,9 +2,24 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <title>StockIndex {{main.title}}</title>
 </head>
 <body>
+{# comment: this is for default stocks items #}
+<div id = "content">
+  <ul id="stocks">
+      {% for item in main.stocks %}
+      <li>
+          <a href="{{ item.code }}">
+              {{item.name}} / {{item.changepercent}}
+          </a>
+      </li>
+  </ul>
+<h1>Simple results</h1>
+{{ main.results }}
+</div>
+<div id="footerlink">
 
+</div>
 </body>
 </html>
