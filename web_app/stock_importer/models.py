@@ -368,6 +368,10 @@ class OwnedStock(Base):
             b = self.col.insert_one({'code': self.code, 'acc': self.acc, 'hands': self.hands})
         return b
 
+    def findall(self):
+        liste = []
+        liste = list(self.col.find())
+        return liste
 
 #class for trade action
 class Trade(Base):
