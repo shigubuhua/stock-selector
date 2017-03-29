@@ -8,13 +8,14 @@ from flask import request  #for http method(api ?)
 
 from web_app.stock_importer import models
 from .funcs import *     #for all need functions
+from .viewmodels import *
 
 app = Flask(__name__)
 url_for('static', filename='style.css')
 
 @app.route('/')
 def index_hello():
-    return 'This is index, hello!'
+    return render_template('index.html', main = genIndex())
 
 @app.route('/stock/<string:stock>')
 def stock_information(stock):
